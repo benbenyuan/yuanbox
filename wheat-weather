@@ -1,0 +1,160 @@
+reviewpath <- "C:/Users/guodan/Desktop/气象数据"
+na <- list.files(reviewpath, pattern = ".csv", full.names = F)
+q <- substr(na,1,2)
+Q <- as.character(q)
+merge.data = read.csv(file = na[1],header=T,stringsAsFactors = F)
+for (i in 2:length(na)){
+  new.data = read.csv(file = na[i], header=T,stringsAsFactors = F)
+  merge.data = rbind(merge.data,new.data)
+}
+
+#气象计算辐射
+library(dplyr)
+weather <- merge.data
+
+zd <- read.csv("全国气象站.csv",header=T,stringsAsFactors = F)
+
+ZD <- zd[,c(1,3,4)]
+colnames(weather)[1] <- "ID"
+weather <- inner_join(weather,ZD,by="ID")
+colnames(weather)[13] <- "Y"
+weather <- mutate(weather,w=(pi/180)*Y)
+
+#write.csv(weather,"气象数据.csv")
+
+for(icl in 9:11)
+{
+  ZD1=weather[,icl]
+  ZD1[which(ZD1>=30000)]=NaN
+  idx=which(is.na(ZD1))
+  ZD2=ZD1
+  for(x1 in 1:length(idx))
+  {
+    ZD2[idx[x1]]=mean(ZD2[idx[x1]-6:idx[x1]+6],na.rm = T)
+    print(c(icl,x1))
+  }
+  weather[,icl]=ZD2
+}
+
+weather <- weather[,-12]
+
+write.csv(weather,"气象数据.csv")
+
+
+
+ZDnu <- unique(weather$ID)
+
+year <-unique(weather$year)
+
+
+
+
+wea <- weather
+
+ntm=1
+for(i in 1:length(ZDnu))
+{
+  wea1 <- wea[wea$ID==ZDnu[i],]
+  for(a in 1: length(year))
+  {
+    wea2 <- wea1[wea1$year==year[a],]
+    wea2 <- mutate(wea2,J=order(year))
+    if(ntm==1)
+    {
+      weat <- wea2
+    }
+    else
+    {
+      weat <- rbind(weat,wea2)
+    }
+    ntm=ntm+1
+    print(ntm)
+  }
+}
+
+
+
+weat <- mutate(weat,Dr=(1+0.033*cos(2*pi*weat$J/365)))
+weat <- mutate(weat,sg=(0.409*sin(2*pi*weat$J/365-1.39)))
+
+#Dr=日地间相对距离的倒数。sg=太阳磁偏角 ws=日落时角。w=维度（弧度）
+
+#Dr <- 1+0.033*cos(2*pi*weather.52765.2009$J/365)
+#sg <- 0.409*sin(2*pi*weather.52765.2009$J/365-1.39)
+#ws <- acos(-tan(w)*tan(sg))
+
+weat <- mutate(weat,ws=(acos(-tan(w)*tan(sg))))
+
+weat <- mutate(weat,Ra=(24*60*0.082*Dr/pi)*(ws*sin(w)*sin(sg)+cos(w)*cos(sg)*sin(ws)))
+
+#Ra <- 24*60*0.082*Dr/pi*(ws*sin(w)*sin(sg)+cos(w)*cos(sg)*sin(ws))
+
+#N=白昼时间 Rs=太阳辐射
+#N <- (24/pi)*ws
+
+weat <- mutate(weat,N=(24/pi)*ws)
+
+#Rs <- (0.25+0.5*(BJ.QX1.56357.pm$V11/BJ.QX1.56357.pm$N))*BJ.QX1.56357.pm$Ra
+
+weat <- mutate(weat,Rs=(0.25+0.5*(weat$sunshine_hours/weat$N))*weat$Ra)
+
+#weather.52765.2009.data <- weather.52765.2009[,c("J","V9","V6","V7","Rs","V10")]
+weat.d <- weat[,c(1:8,21,15)]
+#write.csv(weather.52765.2009.data, file = "weather.52765.2009.csv")
+
+colnames(weat.d)[5] <- "TMEAN"
+colnames(weat.d)[6] <- "TMAX"
+colnames(weat.d)[7] <- "TMIN"
+colnames(weat.d)[8] <- "RAIN"
+colnames(weat.d)[9] <- "SRAD"
+write.csv(weat.d,"小麦15-18日气象.csv")
+
+
+
+ZDnu <- unique(weat.d$ID)
+
+year <-unique(weat.d$year)
+
+weat.d <- mutate(weat.d,aa="")
+
+
+ntm=1
+for(a in 1:length(ZDnu))
+{
+  weat.d.1 <- weat.d[weat.d$ID==ZDnu[a],]
+  for(b in 1: length(year))
+  {
+    weat.d.2 <- weat.d.1[weat.d.1$year==year[b],]
+    weat.d.2[1:9,11] <- "00"
+    weat.d.2[10:99,11] <- "0"
+    weat.d.2 <- mutate(weat.d.2,F=paste(substr(weat.d.2$year,3,4),weat.d.2$aa,weat.d.2$J,sep = ""))
+    if(ntm==1)
+    {
+      w1 <-weat.d.2
+    }
+    else
+    {
+      w1 <- rbind(w1,weat.d.2)
+    }
+    ntm=ntm+1
+    print(ntm)
+  }
+}
+
+
+
+write.csv(w1,"气象数据.csv",quote = F,row.names = F)
+w1 <- read.csv("气象数据.WTH.csv",header = T,stringsAsFactors = F)
+
+
+area <- unique(w1$ID)
+
+
+
+for(a in 1:length(unique(w1$ID)))
+{
+  w2 <- w1[w1$ID==area[a],]
+  name <- paste(area[a],".csv",sep = "")
+  w3 <- w2[,c(2,12,9,6,7,8)]
+  write.csv(w3,name,quote = F,row.names = F)
+}
