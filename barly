@@ -1,0 +1,166 @@
+wng <- read.csv("wheat.N.GAP.csv",header = F,stringsAsFactors = F)
+
+
+point <- unique(as.list(wng[3,]))
+
+ntm=1
+for(a in c(1:7,9:20,22:24))
+{
+  wng2 <- wng[,which(wng[3,]==point[a])]
+  year <- unique(as.list(wng2[4,]))
+  for(b in 1:length(year))
+  {
+    wng3 <- wng2[,which(wng2[4,]==year[b])]
+    gene <- unique(as.list(wng3[6,]))
+    for(c in 1:length(gene))
+    {
+      wng4 <- wng3[,which(wng3[6,]==gene[c])]
+      
+      col1 <- wng4[,which(wng4[2,]=="基础地力水平")]
+      col2 <- wng4[,which(wng4[2,]=="农户水平")]
+      col3 <- wng4[,which(wng4[2,]=="高产高效水平")]
+      col4 <- wng4[,which(wng4[2,]=="超高产水平")]
+      h1 <- data.frame(col1[1],"农户-基础",col1[3],year[b],gene[c],col2[5],as.numeric(col2[5])-as.numeric(col1[5]),as.numeric(col2[7])-as.numeric(col1[7]),stringsAsFactors = F)
+      h2 <- data.frame(col1[1],"高产高效-基础",col1[3],year[b],gene[c],col3[5],as.numeric(col3[5])-as.numeric(col1[5]),as.numeric(col3[7])-as.numeric(col1[7]),stringsAsFactors = F)
+      h3 <- data.frame(col1[1],"超高产-基础",col1[3],year[b],gene[c],col4[5],as.numeric(col4[5])-as.numeric(col1[5]),as.numeric(col4[7])-as.numeric(col1[7]),stringsAsFactors = F)
+
+      h1 <- t(data.frame(h1))
+      h2 <- t(data.frame(h2))
+      h3 <- t(data.frame(h3))
+      wng.d <- cbind(h1,h2,h3)
+      wng.d <- as.data.frame(wng.d,stringsAsFactors = F)
+      if (ntm==1)
+      {
+        wng.d.1 <- data.frame(wng.d,stringsAsFactors = F) 
+      }
+      else
+      {
+        wng.d.1 <- cbind(wng.d.1,wng.d,stringsAsFactors = F)
+      }
+      ntm=ntm+1
+      print(a)
+    }
+  }
+}
+
+wng2 <- wng[,which(wng[3,]==point[21])]
+col1 <- wng2[,which(wng2[2,]=="基础地力水平")]
+col2 <- wng2[,which(wng2[2,]=="超高产水平")]
+h3 <- c(col1[1],"超高产-基础",col1[3],col1[4],col1[6],col2[5],as.numeric(col2[5])-as.numeric(col1[5]),as.numeric(col2[7])-as.numeric(col1[7]))
+
+wng.d.1 <- cbind(wng.d.1,h3,stringsAsFactors = F)
+
+biaoti <- c("生态区","处理","联合地点","年份","品种","产量","产量差","氮总量")
+wng.N <- t(data.frame(wng.d.1,row.names = biaoti))
+wng.N <- as.data.frame(wng.N,row.names = F,stringsAsFactors = F)
+
+
+
+wng.N.1 <- mutate(wng.N,NUE=as.numeric(wng.N$产量差)/as.numeric(wng.N$氮总量))
+
+wng.p <- wng.N.1[-c(37:42),]
+
+
+
+
+
+
+p <- ggplot(wng.p,aes(wng.p$NUE,wng.p$产量))+geom_point()+stat_smooth(method = "lm",se=F)+ ylim(0,20) #不显示置信区间
+
+
+p <- ggplot(wng.p,aes(as.numeric(wng.p$NUE),as.numeric(wng.p$产量),colour=as.character(wng.p$处理)))+geom_point()+stat_smooth(method = "lm",se=F)
+
+
+
+wng.p.south <- wng.p[which(wng.p$生态区=="南方"),]
+wng.p.huang <- wng.p[which(wng.p$生态区=="黄淮海"),]
+wheat.ZD.nanfang <- as.data.frame(unique(wng.p.south$联合地点))  
+wheat.ZD.huang <- as.data.frame(unique(wng.p.huang$联合地点))  
+write.csv(wheat.ZD.nanfang,"南方站点.csv")
+write.csv(wheat.ZD.huang,"黄淮海.csv")
+H <- as.data.frame(paste("A",1:12,sep = ""))
+wheat.ZD.nanfang <- cbind(wheat.ZD.nanfang,H)
+wheat.ZD.huang <- cbind(wheat.ZD.huang,H)
+colnames(wheat.ZD.huang)[1]="联合地点"
+colnames(wheat.ZD.nanfang)[1]="联合地点"
+#联合实验站点编码
+wng.p.huang <- inner_join(wng.p.huang,wheat.ZD.huang,by = "联合地点")
+wng.p.huang <- mutate(wng.p.huang,P=substr(wng.p.huang[,4],3,4))
+wng.p.huang <- wng.p.huang[-c(37:39),]
+wng.p.huang <- mutate(wng.p.huang,P1=paste(P,wng.p.huang$`paste("A", 1:12, sep = "")`,sep = ""))
+
+
+
+wng.p.south <- as.character(wng.p.south$生态区)
+
+p.south <- ggplot(wng.p.huang,aes(as.numeric(wng.p.huang$产量),as.numeric(wng.p.south$NUE),colour=as.character(wng.p.south$处理)))+geom_point()#+stat_smooth(method = "auto",se=F)
+p.south.s <- ggplot(wng.p.south,aes(x=as.character(wng.p.south$联合地点),y=as.numeric(wng.p.south$NUE),fill=as.character(wng.p.south$处理)))+geom_bar(stat = "identity",position = "dodge")+theme(axis.text.x=element_text(size=8)) #+stat_smooth(method = "auto",se=F)
+
+
+
+write.csv(wng.p.south, file = "氮利用.csv")
+
+
+
+
+p.huang <- ggplot(wng.p.huang,aes(as.numeric(wng.p.huang$NUE),as.numeric(wng.p.huang$产量),colour=wng.p.huang$处理))+geom_point()#+stat_smooth(method = "lm",se=F)
+p.huang.s <- ggplot(wng.p.huang,aes(x=wng.p.huang$联合地点,y=wng.p.huang$NUE,fill=wng.p.huang$处理))+geom_bar(stat = "identity",position = "dodge")
+
+
+#氮总量和产量差
+
+wng.p.huang.chaogao <- wng.p.huang[which(wng.p.huang$处理=="超高产-基础"),]
+wng.p.huang.gaoxiao <- wng.p.huang[which(wng.p.huang$处理=="高产高效-基础"),]
+wng.p.huang.nonghu <- wng.p.huang[which(wng.p.huang$处理=="农户-基础"),]
+
+
+f=function(x1,a,b){a*x1^b}
+result=nls(as.numeric(wng.p.huang.nonghu$产量差)~f(as.numeric(wng.p.huang.nonghu$氮总量),a,b),data=wng.p.huang.nonghu,start=list(a=24668.3331,b=-1.7394))
+summary(result)
+
+
+#write.csv(wng.p.huang.chaogao,"黄淮海超高产.csv")
+f.chaogao <- function(x){5255.4313*x^-0.9951}
+f.gaoxiao <- function(x){1912.7697*x^-0.8353}
+f.nonghu <- function(x){24668.3331*x^-1.7394}
+
+inputN <- as.numeric(wng.p.huang$氮总量)
+YG <- as.numeric(wng.p.huang$产量差)
+manage <- as.character(wng.p.huang$处理)
+ddf <- cbind.data.frame(inputN,YG,manage,stringsAsFactors = F)
+
+
+
+
+p.huang.point <- ggplot(ddf,aes(inputN,YG,colour=manage))+geom_point()#+geom_smooth(method = "nls",formula = y ~ a*x^b, start = list(a=1912.8161,b= -0.8353),se=F)
+
+p.huang.point+stat_function(fun = f.gaoxiao,colour="green")+stat_function(fun = f.chaogao,colour="red")+stat_function(fun = f.nonghu,colour="blue")
+
+
+p.huang.fang <- ggplot(wng.p.huang,aes(x=wng.p.huang$P1,y=wng.p.huang$NUE,fill=wng.p.huang$处理))+geom_bar(stat = "identity",position = "dodge")
+
+p.huang.fang+geom_point()
+
+
+
+
+
+
+p.south.s <- ggplot(wng.p.south,aes(x=as.character(wng.p.south$联合地点),y=as.numeric(wng.p.south$NUE),fill=as.character(wng.p.south$处理)))+geom_bar(stat = "identity",position = "dodge")+theme(axis.text.x=element_text(size=8)) #+stat_smooth(method = "auto",se=F)
+
+
+df <- data.frame(x=as.numeric(wng.p.huang.chaogao$氮总量),y=as.numeric(wng.p.huang.chaogao$产量差))
+p.huang.chaogao <- ggplot(df)+geom_smooth(aes(x=as.numeric(wng.p.huang.chaogao$氮总量),y=as.numeric(wng.p.huang.chaogao$产量差)),method='lm',formula=y ~ 5255.4313*x^-0.9951)+geom_point(data = df,aes(x=as.numeric(wng.p.huang.chaogao$氮总量),y=as.numeric(wng.p.huang.chaogao$产量差)))
+
+#ggplot(dt2,aes(x=dt$degree,y=dt$count1))+geom_point()+geom_smooth(method="nls",formula=y ~ a*x^b, start = list(a=2, b= 1.5),se=F)
+
+start = list(a=1912.8161,b= -0.8353)
+
+
+
+
+
+
+
+
+
